@@ -16,5 +16,5 @@ feature2 = st.number_input("Feature 2", value=0.0)
 if st.button("Predict"):
     prediction = model.predict([[feature1, feature2]])
     st.success(f"Prediction: {prediction[0]}")
-pip install streamlit gdown
 streamlit run app.py
+
