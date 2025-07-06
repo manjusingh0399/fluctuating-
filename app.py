@@ -6,30 +6,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import datetime
 
-# Page config
 st.set_page_config(page_title="Book Your NYC BNB", layout="wide")
 
-# Theme & style
-st.markdown("""
-    <style>
-        html, body, [class*="css"] {
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .block-container { padding-top: 1rem; }
-        h1, h2, h3 { color: #ff4b6e; }
-        .stButton>button {
-            background-color: #ffce56 !important;
-            color: black;
-            border-radius: 10px;
-            font-weight: 600;
-        }
-        .stMetric { background-color: #fff3cd; border-radius: 10px; padding: 10px; }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("🌸 Book Your NYC BNB")
-
-# Load data
 @st.cache_data
 def load_data():
     return pd.read_csv("AB_NYC_2019.csv")
@@ -39,112 +17,139 @@ if df.empty:
     st.error("Data not found.")
     st.stop()
 
-# Unified filter form
-with st.form("filter_form"):
-    st.subheader("📓️ Customize Your Stay")
+# Define page layout
+page = st.sidebar.radio("Navigate", ["Search", "Results"])
 
-    col1, col2, col3 = st.columns([1.3, 1.3, 1])
-    with col1:
-        checkin = st.date_input("🗓️ Check-in", value=None)
-    with col2:
-        checkout = st.date_input("🗓️ Check-out", value=None)
-    with col3:
-        guests = st.number_input("👥 Guests", min_value=1, max_value=16, step=1)
+if page == "Search":
+    st.title("\U0001F4C5 Book Your NYC BNB")
+    st.subheader("Welcome! We hope your stay is convenient and memorable \U0001F49E")
+    with st.form("initial_form"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            checkin = st.date_input("\U0001F4C5 Check-in", value=None)
+        with col2:
+            checkout = st.date_input("\U0001F4C5 Check-out", value=None)
+        with col3:
+            guests = st.number_input("\U0001F465 Guests", min_value=1, max_value=16, step=1)
 
-    st.markdown("### 🗭 More Filters")
-    c1, c2 = st.columns(2)
-    with c1:
-        selected_group = st.multiselect("🏩 Neighbourhood Group", df['neighbourhood_group'].unique())
-        selected_hood = st.multiselect("📍 Neighbourhood", sorted(df['neighbourhood'].unique()))
-        min_price, max_price = st.slider("💰 Price Range", 10, 1000, (50, 300))
-    with c2:
-        selected_room = st.multiselect("🛌 Room Type", df['room_type'].unique())
-        min_nights = st.slider("🗓️ Minimum Nights", 1, 30, 1)
-        max_reviews = st.slider("💬 Max Reviews", 0, 500, 300)
-        min_avail = st.slider("✅ Min Availability", 0, 365, 30)
+        area = st.multiselect("\U0001F3D9\uFE0F Choose Your Neighbourhood Group", df['neighbourhood_group'].unique())
+        submit = st.form_submit_button("\U0001F50D Search Listings")
 
-    submitted = st.form_submit_button("🔍 Search Listings")
+    if not submit or checkin is None or checkout is None:
+        st.stop()
 
-if not submitted or checkin is None or checkout is None:
-    st.info("Please select check-in and check-out dates above.")
-    st.stop()
+    nights_stayed = (checkout - checkin).days
+    if nights_stayed <= 0:
+        st.warning("Check-out must be after check-in.")
+        st.stop()
 
-nights_stayed = (checkout - checkin).days
-if nights_stayed <= 0:
-    st.warning("Check-out must be after check-in.")
-    st.stop()
+    st.session_state['checkin'] = checkin
+    st.session_state['checkout'] = checkout
+    st.session_state['guests'] = guests
+    st.session_state['nights_stayed'] = nights_stayed
+    st.session_state['area'] = area
+    st.experimental_rerun()
 
-# Apply all filters
-filtered_df = df[df['availability_365'] >= nights_stayed]
-if selected_group:
-    filtered_df = filtered_df[filtered_df['neighbourhood_group'].isin(selected_group)]
-if selected_room:
-    filtered_df = filtered_df[filtered_df['room_type'].isin(selected_room)]
-if selected_hood:
-    filtered_df = filtered_df[filtered_df['neighbourhood'].isin(selected_hood)]
+elif page == "Results":
+    if 'checkin' not in st.session_state:
+        st.warning("Please start from the Search page.")
+        st.stop()
 
-filtered_df = filtered_df[
-    (filtered_df['price'].between(min_price, max_price)) &
-    (filtered_df['minimum_nights'] >= min_nights) &
-    (filtered_df['number_of_reviews'] <= max_reviews) &
-    (filtered_df['availability_365'] >= min_avail)
-]
+    checkin = st.session_state['checkin']
+    checkout = st.session_state['checkout']
+    guests = st.session_state['guests']
+    nights_stayed = st.session_state['nights_stayed']
+    area = st.session_state['area']
 
-# Overview
-st.markdown(f"### ✨ {len(filtered_df)} Listings Matching Your Criteria")
-col1, col2, col3 = st.columns(3)
-col1.metric("🌟 Listings", len(filtered_df))
-col2.metric("💸 Avg. Price", f"${filtered_df['price'].mean():.2f}")
-col3.metric("👩‍💼 Hosts", filtered_df['host_id'].nunique())
+    st.title("\U0001F389 Your NYC BNB Listings")
+    st.markdown("_We hope your stay is convenient and full of memories!_")
 
-# Charts
-st.markdown("### 📊 Explore Your Options")
-sns.set_theme(style="whitegrid", palette="pastel")
-colA, colB = st.columns(2)
+    # Sidebar Filters
+    st.sidebar.header("\u2728 Refine Your Search")
+    selected_group = st.sidebar.multiselect("\U0001F3E9 Neighbourhood Group", df['neighbourhood_group'].unique(), default=area)
+    selected_room = st.sidebar.multiselect("\U0001F6CC Room Type", df['room_type'].unique())
+    selected_hood = st.sidebar.multiselect("\U0001F4CD Neighbourhood", sorted(df['neighbourhood'].unique()))
+    min_price, max_price = st.sidebar.slider("\U0001F4B0 Price Range", 10, 1000, (50, 300))
+    min_nights = st.sidebar.slider("\U0001F4C5 Minimum Nights", 1, 30, 1)
+    max_reviews = st.sidebar.slider("\U0001F4AC Max Reviews", 0, 500, 300)
+    min_avail = st.sidebar.slider("✅ Min Availability", 0, 365, 30)
 
-with colA:
-    st.markdown("##### 💵 Price Spread (Under $500)")
-    fig1, ax1 = plt.subplots(figsize=(6, 4))
-    sns.histplot(filtered_df[filtered_df['price'] < 500]['price'], bins=40, kde=True, color="#ffb6b9", ax=ax1)
-    ax1.set_title("Prices You’ll Love 💕")
-    st.pyplot(fig1)
+    # Apply Filters
+    filtered_df = df[df['availability_365'] >= nights_stayed]
+    if selected_group:
+        filtered_df = filtered_df[filtered_df['neighbourhood_group'].isin(selected_group)]
+    if selected_room:
+        filtered_df = filtered_df[filtered_df['room_type'].isin(selected_room)]
+    if selected_hood:
+        filtered_df = filtered_df[filtered_df['neighbourhood'].isin(selected_hood)]
 
-with colB:
-    st.markdown("##### 🗌️ Area Popularity")
-    fig2, ax2 = plt.subplots(figsize=(6, 4))
-    order = filtered_df['neighbourhood_group'].value_counts().index
-    sns.countplot(data=filtered_df, x='neighbourhood_group', order=order, palette="YlOrRd", ax=ax2)
-    ax2.set_title("Neighbourhood Hotspots 🔥")
-    st.pyplot(fig2)
+    filtered_df = filtered_df[
+        (filtered_df['price'].between(min_price, max_price)) &
+        (filtered_df['minimum_nights'] >= min_nights) &
+        (filtered_df['number_of_reviews'] <= max_reviews) &
+        (filtered_df['availability_365'] >= min_avail)
+    ]
 
-# Map
-st.markdown("### 📍 Where You’ll Be Staying")
-st.map(filtered_df[['latitude', 'longitude']].dropna())
+    st.markdown(f"### ✨ {len(filtered_df)} Listings Matching Your Criteria")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("\U0001F31F Listings", len(filtered_df))
+    col2.metric("\U0001F4B8 Avg. Price", f"${filtered_df['price'].mean():.2f}")
+    col3.metric("\U0001F469‍\U0001F4BC Hosts", filtered_df['host_id'].nunique())
 
-# ML prediction
-st.markdown("### 🔮 Smart Price Prediction")
-df_model = df[df['price'] < 500]
-features = ['neighbourhood_group', 'room_type', 'minimum_nights', 'number_of_reviews', 'availability_365']
-X = pd.get_dummies(df_model[features], drop_first=True)
-y = df_model['price']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+    # ML Prediction
+    df_model = df[df['price'] < 500]
+    features = ['neighbourhood_group', 'room_type', 'minimum_nights', 'number_of_reviews', 'availability_365']
+    X = pd.get_dummies(df_model[features], drop_first=True)
+    y = df_model['price']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
 
-input_df = pd.DataFrame({
-    'neighbourhood_group': [selected_group[0] if selected_group else 'Manhattan'],
-    'room_type': [selected_room[0] if selected_room else 'Private room'],
-    'minimum_nights': [nights_stayed],
-    'number_of_reviews': [max_reviews],
-    'availability_365': [min_avail]
-})
-input_encoded = pd.get_dummies(input_df)
-input_encoded = input_encoded.reindex(columns=X.columns, fill_value=0)
-predicted_price = model.predict(input_encoded)[0]
+    input_df = pd.DataFrame({
+        'neighbourhood_group': [selected_group[0] if selected_group else 'Manhattan'],
+        'room_type': [selected_room[0] if selected_room else 'Private room'],
+        'minimum_nights': [nights_stayed],
+        'number_of_reviews': [max_reviews],
+        'availability_365': [min_avail]
+    })
+    input_encoded = pd.get_dummies(input_df)
+    input_encoded = input_encoded.reindex(columns=X.columns, fill_value=0)
+    predicted_price = model.predict(input_encoded)[0]
 
-st.markdown(f"""
-    <div style='background-color:#fff0ba; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0; font-size: 20px;'>
-    🌟 <b>Estimated Price for Your Stay:</b><br>
-    <span style='font-size:32px; color:#ff4b6e;'>${predicted_price:.2f}</span> / night
-    </div>
-""", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style='background-color:#fff0ba; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0; font-size: 20px;'>
+        🌟 <b>Estimated Price for Your Stay:</b><br>
+        <span style='font-size:32px; color:#ff4b6e;'>${predicted_price:.2f}</span> / night
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Charts
+    st.markdown("### 📊 Explore Your Options")
+    sns.set_theme(style="whitegrid", palette="pastel")
+    colA, colB = st.columns(2)
+
+    with colA:
+        st.markdown("##### 💵 Price Spread (Under $500)")
+        fig1, ax1 = plt.subplots(figsize=(6, 4))
+        sns.histplot(filtered_df[filtered_df['price'] < 500]['price'], bins=40, kde=True, color="#ffb6b9", ax=ax1)
+        ax1.set_title("Prices You’ll Love 💕")
+        st.pyplot(fig1)
+
+    with colB:
+        st.markdown("##### 🗌️ Area Popularity")
+        fig2, ax2 = plt.subplots(figsize=(6, 4))
+        order = filtered_df['neighbourhood_group'].value_counts().index
+        sns.countplot(data=filtered_df, x='neighbourhood_group', order=order, palette="YlOrRd", ax=ax2)
+        ax2.set_title("Neighbourhood Hotspots 🔥")
+        st.pyplot(fig2)
+
+    st.markdown("### 📍 Map of Listings")
+    st.map(filtered_df[['latitude', 'longitude']].dropna())
+
+    st.markdown("""
+        ---
+        ### 📢 Contact Us
+        - Instagram: [@nyc_bnb](https://instagram.com)
+        - Email: contact@nycbnb.com
+        - Phone: +1 234 567 8900
+    """)
