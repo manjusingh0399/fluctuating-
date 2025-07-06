@@ -8,14 +8,30 @@ from datetime import datetime
 
 st.set_page_config(page_title="Book Your NYC BNB", layout="wide")
 
-# Display avatar (Statue of Liberty waving)
-with st.container():
-    st.markdown("""
+# Add blurred background image using CSS
+st.markdown("""
+    <style>
+    .stApp {
+        background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/4e/Statue_of_Liberty%2C_NY.jpg');
+        background-size: cover;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    }
+    .block-container {
+        backdrop-filter: blur(4px);
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 2rem;
+        border-radius: 12px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# App header
+st.markdown("""
     <div style='text-align:center;'>
-        <img src='https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Statue_of_Liberty_7.jpg/200px-Statue_of_Liberty_7.jpg' width='100' style='border-radius: 10px;'>
         <h1>🗽 Book Your NYC BNB</h1>
     </div>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
