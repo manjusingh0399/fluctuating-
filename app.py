@@ -5,158 +5,166 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import datetime
-import os
 
 # Page config
-st.set_page_config(page_title="Airbnb NYC 2019", layout="wide")
+st.set_page_config(page_title="Book Your NYC BNB", layout="wide")
 
-# Subtle UI styling
+# Theme & style
 st.markdown("""
     <style>
-        h1, h3, h4 {
-            color: #343a40;
+        html, body, [class*="css"] {
+            font-family: 'Segoe UI', sans-serif;
         }
-        .stMetric {
-            font-size: 18px !important;
+        .block-container { padding-top: 1rem; }
+        h1, h2, h3 { color: #ff4b6e; }
+        .stButton>button {
+            background-color: #ffce56 !important;
+            color: black;
+            border-radius: 10px;
+            font-weight: 600;
         }
-        .main > div {
-            padding-top: 20px;
-        }
-        .block-container {
-            padding-top: 1rem;
-            padding-left: 2rem;
-            padding-right: 2rem;
-        }
-        .css-ffhzg2 {
-            background-color: #f1f3f5 !important;
-        }
+        .stMetric { background-color: #fff3cd; border-radius: 10px; padding: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.title("🏙️ Airbnb NYC 2019 Dashboard + Price Predictor")
+st.title("🌸 Book Your NYC BNB")
 
-# Load dataset
+# Load data
 @st.cache_data
 def load_data():
-    try:
-        return pd.read_csv("AB_NYC_2019.csv")
-    except FileNotFoundError:
-        st.error("❌ 'AB_NYC_2019.csv' not found in the same folder as this file.")
-        return pd.DataFrame()
+    return pd.read_csv("AB_NYC_2019.csv")
 
 df = load_data()
 
-if not df.empty:
-    # Sidebar - Booking filters
-    st.sidebar.header("🔍 Filter Listings")
+if df.empty:
+    st.error("Data not found.")
+    st.stop()
 
-    st.sidebar.subheader("📅 Booking Dates")
-    checkin = st.sidebar.date_input("Check-in", datetime.today())
-    checkout = st.sidebar.date_input("Check-out", datetime.today())
-    nights_stayed = (checkout - checkin).days if checkout > checkin else 0
+# 🌟 Main Filters
+with st.form("main_filter_form"):
+    st.subheader("🛎️ Customize Your Stay")
 
-    if nights_stayed <= 0:
-        st.sidebar.warning("Please select valid check-in and check-out dates.")
-        st.stop()
+    col1, col2, col3 = st.columns([1.3, 1.3, 1])
+    with col1:
+        checkin = st.date_input("📅 Check-in", value=None)
+    with col2:
+        checkout = st.date_input("📅 Check-out", value=None)
+    with col3:
+        guests = st.number_input("👥 Guests", min_value=1, max_value=16, step=1)
 
-    st.sidebar.info(f"⏳ Stay Duration: {nights_stayed} nights")
+    submitted = st.form_submit_button("🔍 Search Listings")
 
-    # Sidebar - Filters
-    selected_group = st.sidebar.multiselect(
-        "Neighbourhood Group",
-        options=df['neighbourhood_group'].unique(),
-        default=df['neighbourhood_group'].unique()
-    )
+if not submitted or checkin is None or checkout is None:
+    st.info("Please select check-in and check-out dates above.")
+    st.stop()
 
-    selected_room = st.sidebar.multiselect(
-        "Room Type",
-        options=df['room_type'].unique(),
-        default=df['room_type'].unique()
-    )
+nights_stayed = (checkout - checkin).days
+if nights_stayed <= 0:
+    st.warning("Check-out must be after check-in.")
+    st.stop()
 
-    # Filter for availability and selections
-    available_df = df[df['availability_365'] >= nights_stayed]
-    filtered_df = available_df[
-        (available_df['neighbourhood_group'].isin(selected_group)) &
-        (available_df['room_type'].isin(selected_room))
-    ]
+filtered_df = df[df['availability_365'] >= nights_stayed]
 
-    # Summary Metrics
-    st.markdown(f"### ✅ {len(filtered_df)} Listings Available for {nights_stayed} Nights")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Listings", len(filtered_df))
-    col2.metric("Avg. Price", f"${filtered_df['price'].mean():.2f}")
-    col3.metric("Unique Hosts", filtered_df['host_id'].nunique())
+# Sidebar filters
+st.sidebar.header("✨ More Filters")
 
-    # Side-by-side charts
-    st.markdown("### 📈 Visualizations")
+selected_group = st.sidebar.multiselect("🏙️ Neighbourhood Group", df['neighbourhood_group'].unique())
+selected_room = st.sidebar.multiselect("🛏️ Room Type", df['room_type'].unique())
+selected_hood = st.sidebar.multiselect("📍 Neighbourhood", sorted(df['neighbourhood'].unique()))
+min_price, max_price = st.sidebar.slider("💰 Price Range", 10, 1000, (50, 300))
+min_nights = st.sidebar.slider("📆 Minimum Nights", 1, 30, 1)
+max_reviews = st.sidebar.slider("💬 Max Reviews", 0, 500, 300)
+min_avail = st.sidebar.slider("✅ Min Availability", 0, 365, 30)
 
-    colA, colB = st.columns(2)
+# Apply sidebar filters
+if selected_group:
+    filtered_df = filtered_df[filtered_df['neighbourhood_group'].isin(selected_group)]
+if selected_room:
+    filtered_df = filtered_df[filtered_df['room_type'].isin(selected_room)]
+if selected_hood:
+    filtered_df = filtered_df[filtered_df['neighbourhood'].isin(selected_hood)]
 
-    with colA:
-        st.markdown("##### 💵 Price Distribution (Under $500)")
-        fig1, ax1 = plt.subplots(figsize=(5, 3))
-        sns.set_theme(style="whitegrid")
-        sns.histplot(filtered_df[filtered_df['price'] < 500]['price'], bins=40, kde=True, ax=ax1, color="#adb5bd")
-        ax1.set_xlabel("Price")
-        ax1.set_ylabel("Count")
-        st.pyplot(fig1)
+filtered_df = filtered_df[
+    (filtered_df['price'].between(min_price, max_price)) &
+    (filtered_df['minimum_nights'] >= min_nights) &
+    (filtered_df['number_of_reviews'] <= max_reviews) &
+    (filtered_df['availability_365'] >= min_avail)
+]
 
-    with colB:
-        st.markdown("##### 🏘️ Listings by Neighbourhood Group")
-        fig2, ax2 = plt.subplots(figsize=(5, 3))
-        sns.countplot(
-            data=filtered_df,
-            x='neighbourhood_group',
-            order=filtered_df['neighbourhood_group'].value_counts().index,
-            palette="Greys", ax=ax2
-        )
-        ax2.set_ylabel("Number of Listings")
-        ax2.set_xlabel("Neighbourhood Group")
-        st.pyplot(fig2)
+# 🧾 Overview
+st.markdown(f"### ✨ {len(filtered_df)} Listings Matching Your Criteria")
+col1, col2, col3 = st.columns(3)
+col1.metric("🌟 Listings", len(filtered_df))
+col2.metric("💸 Avg. Price", f"${filtered_df['price'].mean():.2f}")
+col3.metric("👩‍💼 Hosts", filtered_df['host_id'].nunique())
 
-    # Map view
-    st.markdown("### 🗺️ Available Listings Map")
-    st.map(filtered_df[['latitude', 'longitude']].dropna())
+# 🎨 Charts
+st.markdown("### 📊 Explore Your Options")
 
-    # ML Section
-    st.markdown("### 🤖 Predict Airbnb Price")
+sns.set_theme(style="whitegrid", palette="pastel")
+colA, colB = st.columns(2)
 
-    df_model = df[df['price'] < 500]
-    features = ['neighbourhood_group', 'room_type', 'minimum_nights', 'number_of_reviews', 'availability_365']
-    target = 'price'
+with colA:
+    st.markdown("##### 💵 Price Spread (Under $500)")
+    fig1, ax1 = plt.subplots(figsize=(6, 4))
+    sns.histplot(filtered_df[filtered_df['price'] < 500]['price'], bins=40, kde=True, color="#ffb6b9", ax=ax1)
+    ax1.set_title("Prices You’ll Love 💕")
+    st.pyplot(fig1)
 
-    X = df_model[features]
-    y = df_model[target]
-    X_encoded = pd.get_dummies(X, drop_first=True)
+with colB:
+    st.markdown("##### 🗺️ Area Popularity")
+    fig2, ax2 = plt.subplots(figsize=(6, 4))
+    order = filtered_df['neighbourhood_group'].value_counts().index
+    sns.countplot(data=filtered_df, x='neighbourhood_group', order=order, palette="YlOrRd", ax=ax2)
+    ax2.set_title("Neighbourhood Hotspots 🔥")
+    st.pyplot(fig2)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_encoded, y, test_size=0.2, random_state=42
-    )
+# 📍 Map
+st.markdown("### 📍 Where You’ll Be Staying")
+st.map(filtered_df[['latitude', 'longitude']].dropna())
 
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
+# 🔮 Price Prediction
+st.markdown("### 🔮 Smart Price Prediction")
 
-    # Prediction input
-    st.sidebar.header("💡 Predict Price")
-    input_group = st.sidebar.selectbox("Neighbourhood Group", df['neighbourhood_group'].unique())
-    input_room = st.sidebar.selectbox("Room Type", df['room_type'].unique())
-    input_nights = nights_stayed
-    input_reviews = st.sidebar.slider("Number of Reviews", 0, 300, 20)
-    input_availability = st.sidebar.slider("Availability (days/year)", 0, 365, 180)
+model_df = df[df['price'] < 500]
+features = ['neighbourhood_group', 'room_type', 'minimum_nights', 'number_of_reviews', 'availability_365']
+X = pd.get_dummies(model_df[features], drop_first=True)
+y = model_df['price']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = RandomForestRegressor(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
 
-    input_df = pd.DataFrame({
-        'neighbourhood_group': [input_group],
-        'room_type': [input_room],
-        'minimum_nights': [input_nights],
-        'number_of_reviews': [input_reviews],
-        'availability_365': [input_availability]
-    })
+# Input for prediction
+input_group = st.sidebar.selectbox("🔮 Predict: Neighbourhood Group", df['neighbourhood_group'].unique())
+input_room = st.sidebar.selectbox("🔮 Predict: Room Type", df['room_type'].unique())
+input_reviews = st.sidebar.slider("🔮 Predict: Reviews", 0, 300, 20)
+input_avail = st.sidebar.slider("🔮 Predict: Availability", 0, 365, 180)
 
-    input_encoded = pd.get_dummies(input_df)
-    input_encoded = input_encoded.reindex(columns=X_encoded.columns, fill_value=0)
+input_df = pd.DataFrame({
+    'neighbourhood_group': [input_group],
+    'room_type': [input_room],
+    'minimum_nights': [nights_stayed],
+    'number_of_reviews': [input_reviews],
+    'availability_365': [input_avail]
+})
 
-    predicted_price = model.predict(input_encoded)[0]
-    st.sidebar.markdown("### 💰 Predicted Price")
-    st.sidebar.success(f"${predicted_price:.2f}")
+input_encoded = pd.get_dummies(input_df)
+input_encoded = input_encoded.reindex(columns=X.columns, fill_value=0)
+predicted_price = model.predict(input_encoded)[0]
+
+# 🎯 Show prediction
+st.markdown(f"""
+    <div style='
+        background-color:#fff0ba;
+        padding: 20px 20px;
+        border-radius: 12px;
+        text-align: center;
+        margin-top: 15px;
+        margin-bottom: 30px;
+        font-size: 20px;
+        color: #212529;
+        font-weight: 500;'>
+    🎯 <b>Estimated Price for Your Stay:</b><br>
+    <span style='font-size:32px; color:#ff4b6e;'>${predicted_price:.2f}</span> / night
+    </div>
+""", unsafe_allow_html=True)
