@@ -17,8 +17,20 @@ if df.empty:
     st.error("Data not found.")
     st.stop()
 
-# Define page layout
-page = st.sidebar.radio("Navigate", ["Search", "Results"])
+# Redirect user automatically to Results page
+if 'redirect' not in st.session_state:
+    st.session_state['redirect'] = False
+
+if st.session_state['redirect']:
+    st.session_state['redirect'] = False
+    st.experimental_set_query_params(page="Results")
+    st.experimental_rerun()
+
+# Define page layout based on query param or sidebar selection
+query_params = st.experimental_get_query_params()
+page = query_params.get("page", [None])[0]
+if not page:
+    page = st.sidebar.radio("Navigate", ["Search", "Results"])
 
 if page == "Search":
     st.title("\U0001F4C5 Book Your NYC BNB")
@@ -50,8 +62,8 @@ if page == "Search":
         st.session_state['guests'] = guests
         st.session_state['nights_stayed'] = nights_stayed
         st.session_state['area'] = area
-        st.session_state['goto_results'] = True
-        st.success("Search submitted! Please switch to the 'Results' tab from the sidebar.")
+        st.session_state['redirect'] = True
+        st.experimental_rerun()
 
 elif page == "Results":
     if 'checkin' not in st.session_state:
@@ -149,10 +161,13 @@ elif page == "Results":
     st.markdown("### 📍 Map of Listings")
     st.map(filtered_df[['latitude', 'longitude']].dropna())
 
+    # Center-aligned Contact Section
     st.markdown("""
         ---
-        ### 📢 Contact Us
-        - Instagram: [@nyc_bnb](https://instagram.com)
-        - Email: contact@nycbnb.com
-        - Phone: +1 234 567 8900
-    """)
+        <div style='text-align: center;'>
+            <h3>📢 Contact Us</h3>
+            <p>Instagram: <a href='https://instagram.com'>@nyc_bnb</a><br>
+            Email: <a href='mailto:contact@nycbnb.com'>contact@nycbnb.com</a><br>
+            Phone: +1 234 567 8900</p>
+        </div>
+    """, unsafe_allow_html=True)
