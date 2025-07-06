@@ -23,49 +23,61 @@ if 'redirect' not in st.session_state:
 
 if st.session_state['redirect']:
     st.session_state['redirect'] = False
-    st.experimental_set_query_params(page="Results")
+    st.query_params = {"page": "Results"}
     st.experimental_rerun()
 
 # Define page layout based on query param or sidebar selection
-query_params = st.experimental_get_query_params()
-page = query_params.get("page", [None])[0]
+query_params = st.query_params
+page = query_params.get("page", [None])[0] if isinstance(query_params.get("page"), list) else query_params.get("page")
 if not page:
-    page = st.sidebar.radio("Navigate", ["Search", "Results"])
+    page = "Search"
 
 if page == "Search":
-    st.title("\U0001F4C5 Book Your NYC BNB")
-    st.subheader("Welcome! We hope your stay is convenient and memorable \U0001F49E")
-    with st.form("initial_form"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            checkin = st.date_input("\U0001F4C5 Check-in", value=None)
-        with col2:
-            checkout = st.date_input("\U0001F4C5 Check-out", value=None)
-        with col3:
-            guests = st.number_input("\U0001F465 Guests", min_value=1, max_value=16, step=1)
+    with st.container():
+        st.title("\U0001F4C5 Book Your NYC BNB")
+        st.subheader("Welcome! We hope your stay is convenient and memorable \U0001F49E")
+        with st.form("initial_form"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                checkin = st.date_input("\U0001F4C5 Check-in", value=None)
+            with col2:
+                checkout = st.date_input("\U0001F4C5 Check-out", value=None)
+            with col3:
+                guests = st.number_input("\U0001F465 Guests", min_value=1, max_value=16, step=1)
 
-        area = st.multiselect("\U0001F3D9\uFE0F Choose Your Neighbourhood Group", df['neighbourhood_group'].unique())
-        submit = st.form_submit_button("\U0001F50D Search Listings")
+            area = st.multiselect("\U0001F3D9\uFE0F Choose Your Neighbourhood Group", df['neighbourhood_group'].unique())
+            submit = st.form_submit_button("\U0001F50D Search Listings")
 
-    if submit:
-        if checkin is None or checkout is None:
-            st.warning("Please select both check-in and check-out dates.")
-            st.stop()
+        if submit:
+            if checkin is None or checkout is None:
+                st.warning("Please select both check-in and check-out dates.")
+                st.stop()
 
-        nights_stayed = (checkout - checkin).days
-        if nights_stayed <= 0:
-            st.warning("Check-out must be after check-in.")
-            st.stop()
+            nights_stayed = (checkout - checkin).days
+            if nights_stayed <= 0:
+                st.warning("Check-out must be after check-in.")
+                st.stop()
 
-        st.session_state['checkin'] = checkin
-        st.session_state['checkout'] = checkout
-        st.session_state['guests'] = guests
-        st.session_state['nights_stayed'] = nights_stayed
-        st.session_state['area'] = area
-        st.session_state['redirect'] = True
-        st.experimental_rerun()
+            st.session_state['checkin'] = checkin
+            st.session_state['checkout'] = checkout
+            st.session_state['guests'] = guests
+            st.session_state['nights_stayed'] = nights_stayed
+            st.session_state['area'] = area
+            st.session_state['redirect'] = True
+            st.experimental_rerun()
 
 elif page == "Results":
+    # Sidebar Filters (only for Results page)
+    with st.sidebar:
+        st.header("\u2728 Refine Your Search")
+        selected_group = st.multiselect("\U0001F3E9 Neighbourhood Group", df['neighbourhood_group'].unique(), default=st.session_state.get('area', []))
+        selected_room = st.multiselect("\U0001F6CC Room Type", df['room_type'].unique())
+        selected_hood = st.multiselect("\U0001F4CD Neighbourhood", sorted(df['neighbourhood'].unique()))
+        min_price, max_price = st.slider("\U0001F4B0 Price Range", 10, 1000, (50, 300))
+        min_nights = st.slider("\U0001F4C5 Minimum Nights", 1, 30, 1)
+        max_reviews = st.slider("\U0001F4AC Max Reviews", 0, 500, 300)
+        min_avail = st.slider("✅ Min Availability", 0, 365, 30)
+
     if 'checkin' not in st.session_state:
         st.warning("Please start from the Search page.")
         st.stop()
@@ -78,16 +90,6 @@ elif page == "Results":
 
     st.title("\U0001F389 Your NYC BNB Listings")
     st.markdown("_We hope your stay is convenient and full of memories!_")
-
-    # Sidebar Filters
-    st.sidebar.header("\u2728 Refine Your Search")
-    selected_group = st.sidebar.multiselect("\U0001F3E9 Neighbourhood Group", df['neighbourhood_group'].unique(), default=area)
-    selected_room = st.sidebar.multiselect("\U0001F6CC Room Type", df['room_type'].unique())
-    selected_hood = st.sidebar.multiselect("\U0001F4CD Neighbourhood", sorted(df['neighbourhood'].unique()))
-    min_price, max_price = st.sidebar.slider("\U0001F4B0 Price Range", 10, 1000, (50, 300))
-    min_nights = st.sidebar.slider("\U0001F4C5 Minimum Nights", 1, 30, 1)
-    max_reviews = st.sidebar.slider("\U0001F4AC Max Reviews", 0, 500, 300)
-    min_avail = st.sidebar.slider("✅ Min Availability", 0, 365, 30)
 
     # Apply Filters
     filtered_df = df[df['availability_365'] >= nights_stayed]
