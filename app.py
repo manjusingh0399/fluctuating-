@@ -17,20 +17,8 @@ if df.empty:
     st.error("Data not found.")
     st.stop()
 
-# Redirect user automatically to Results page
-if 'redirect' not in st.session_state:
-    st.session_state['redirect'] = False
-
-if st.session_state['redirect']:
-    st.session_state['redirect'] = False
-    st.query_params = {"page": "Results"}
-    st.experimental_rerun()
-
-# Define page layout based on query param or sidebar selection
-query_params = st.query_params
-page = query_params.get("page", [None])[0] if isinstance(query_params.get("page"), list) else query_params.get("page")
-if not page:
-    page = "Search"
+# Define current page
+page = st.query_params.get("page", "Search")
 
 if page == "Search":
     with st.container():
@@ -39,9 +27,9 @@ if page == "Search":
         with st.form("initial_form"):
             col1, col2, col3 = st.columns(3)
             with col1:
-                checkin = st.date_input("\U0001F4C5 Check-in", value=None)
+                checkin = st.date_input("\U0001F4C5 Check-in")
             with col2:
-                checkout = st.date_input("\U0001F4C5 Check-out", value=None)
+                checkout = st.date_input("\U0001F4C5 Check-out")
             with col3:
                 guests = st.number_input("\U0001F465 Guests", min_value=1, max_value=16, step=1)
 
@@ -63,8 +51,9 @@ if page == "Search":
             st.session_state['guests'] = guests
             st.session_state['nights_stayed'] = nights_stayed
             st.session_state['area'] = area
-            st.session_state['redirect'] = True
-            st.experimental_rerun()
+
+            st.query_params["page"] = "Results"
+            st.rerun()
 
 elif page == "Results":
     # Sidebar Filters (only for Results page)
@@ -162,6 +151,18 @@ elif page == "Results":
 
     st.markdown("### 📍 Map of Listings")
     st.map(filtered_df[['latitude', 'longitude']].dropna())
+
+    # Recommended NYC Hotspots
+    st.markdown("""
+        ### 🗽 Must-Visit NYC Hotspots Nearby:
+        - **Central Park** – Perfect for morning walks and relaxing afternoons.
+        - **Times Square** – For vibrant nightlife, lights, and Broadway shows.
+        - **Brooklyn Bridge** – A scenic walk with skyline views.
+        - **Statue of Liberty** – NYC's most iconic attraction.
+        - **The High Line** – An elevated park with great food, art, and views.
+        - **Chelsea Market** – Delicious eats and unique local shops.
+        - **SoHo** – Trendy shopping and cozy cafés.
+    """)
 
     # Center-aligned Contact Section
     st.markdown("""
