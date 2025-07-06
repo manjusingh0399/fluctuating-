@@ -30,6 +30,7 @@ st.markdown("""
 st.markdown("""
     <div style='text-align:center;'>
         <h1>🗽 Book Your NYC BNB</h1>
+        <h4 style='color:#ff4b6e;'>Where your perfect New York stay begins! 🎈</h4>
     </div>
 """, unsafe_allow_html=True)
 
@@ -51,7 +52,7 @@ page = st.query_params.get("page", "Search")
 
 if page == "Search":
     with st.container():
-        st.subheader("Welcome! We hope your stay is convenient and memorable 💞")
+        st.subheader("Hey there 👋 Let's get you a cozy stay in the city that never sleeps!")
         with st.form("search_form"):
             col1, col2, col3 = st.columns(3)
             with col1:
