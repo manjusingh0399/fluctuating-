@@ -35,20 +35,23 @@ if page == "Search":
         area = st.multiselect("\U0001F3D9\uFE0F Choose Your Neighbourhood Group", df['neighbourhood_group'].unique())
         submit = st.form_submit_button("\U0001F50D Search Listings")
 
-    if not submit or checkin is None or checkout is None:
-        st.stop()
+    if submit:
+        if checkin is None or checkout is None:
+            st.warning("Please select both check-in and check-out dates.")
+            st.stop()
 
-    nights_stayed = (checkout - checkin).days
-    if nights_stayed <= 0:
-        st.warning("Check-out must be after check-in.")
-        st.stop()
+        nights_stayed = (checkout - checkin).days
+        if nights_stayed <= 0:
+            st.warning("Check-out must be after check-in.")
+            st.stop()
 
-    st.session_state['checkin'] = checkin
-    st.session_state['checkout'] = checkout
-    st.session_state['guests'] = guests
-    st.session_state['nights_stayed'] = nights_stayed
-    st.session_state['area'] = area
-    st.experimental_rerun()
+        st.session_state['checkin'] = checkin
+        st.session_state['checkout'] = checkout
+        st.session_state['guests'] = guests
+        st.session_state['nights_stayed'] = nights_stayed
+        st.session_state['area'] = area
+        st.session_state['goto_results'] = True
+        st.success("Search submitted! Please switch to the 'Results' tab from the sidebar.")
 
 elif page == "Results":
     if 'checkin' not in st.session_state:
